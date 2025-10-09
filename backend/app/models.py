@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, Date, Enum
+from sqlalchemy import Column, Integer, String, Date, Enum, Float
 from .database import Base
 import enum
-
 # Enum for situation types (used in multiple tables)
 class Situation(enum.Enum):
     all = "all"
@@ -712,6 +711,22 @@ class RawGameLevel(Base):
     scoreFlurryAdjustedTotalShotCreditAgainst = Column(String)
     playoffGame = Column(String)
 
+# Raw Player Info - Static player data
+class RawPlayerInfo(Base):
+    __tablename__ = "raw_player_info"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    playerId = Column(String, primary_key=True)
+    name = Column(String)
+    position = Column(String)
+    team = Column(String)
+    birthDate = Column(Date)
+    weight = Column(Integer)
+    height = Column(Integer)
+    nationality = Column(String)
+    shootsCatches = Column(String)
+    primaryNumber = Column(Integer)
+    primaryPosition = Column(String)
+
 # Raw Shot Data - Shot-by-shot stats
 class RawShotData(Base):
     __tablename__ = "raw_shot_data"
@@ -838,3 +853,27 @@ class RawShotData(Base):
     shotWasOnGoal = Column(String)
     teamCode = Column(String)
     arenaAdjustedXCordABS = Column(String)
+
+    # Raw Schedule - Raw schedule data
+class RawSchedule(Base):
+    __tablename__ = "raw_schedule"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    date = Column(Date)
+    time = Column(String)
+    visitor = Column(String)
+    g = Column(Integer)
+    home = Column(String)
+    g1 = Column(Integer)
+    att = Column(Integer)
+    log = Column(String)
+    notes = Column(String)
+
+# Teams Lookup - Team coordinates and NHL IDs
+class TeamsLookup(Base):
+    __tablename__ = "teams_lookup"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, unique=True)
+    abbreviation = Column(String)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    nhl_team_id = Column(Integer)
