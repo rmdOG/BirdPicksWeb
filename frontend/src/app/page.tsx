@@ -18,7 +18,11 @@ export default function Home() {
         body: formData,
       });
       const data = await res.json();
-      setMessage(`Upload success: ${data.records} records added.`);
+      if (res.ok) {
+        setMessage(`Upload success: ${data.records} records added.`);
+      } else {
+        setMessage(`Error: ${data.detail || "Upload failed"}`);
+      }
     } catch (error) {
       setMessage(`Error: ${error}`);
     }
@@ -26,9 +30,9 @@ export default function Home() {
 
   return (
     <div className="max-w-md mx-auto">
-      <h2 className="text-xl mb-4">Upload Data to DB</h2>
+      <h2 className="text-xl mb-4">Upload Data to Database</h2>
       <select
-        className="border p-2 mb-2 w-full"
+        className="border p-2 mb-2 w-full rounded"
         value={table}
         onChange={(e) => setTable(e.target.value)}
       >
@@ -36,7 +40,6 @@ export default function Home() {
         <option value="goalies">Goalies</option>
         <option value="teams">Teams</option>
         <option value="games">Games/Schedule</option>
-        {/* Add more tables as we expand */}
       </select>
       <input
         type="file"
@@ -45,12 +48,16 @@ export default function Home() {
         onChange={(e) => setFile(e.target.files?.[0] || null)}
       />
       <button
-        className="bg-blue-600 text-white p-2 rounded"
+        className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
         onClick={handleUpload}
       >
         Upload
       </button>
-      {message && <p className="mt-2 text-green-600">{message}</p>}
+      {message && (
+        <p className={`mt-2 ${message.includes("Error") ? "text-red-600" : "text-green-600"}`}>
+          {message}
+        </p>
+      )}
     </div>
   );
 }
