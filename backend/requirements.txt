@@ -12,3 +12,4 @@ python-dotenv==1.0.1
 openpyxl==3.1.5
 PyPDF2==3.0.1  # For future PDF if needed
 python-multipart==0.0.10
+python-dotenv

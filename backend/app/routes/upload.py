@@ -1,67 +1,79 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from ..database import get_db
-from ..utils.logging import logger
+from ..database import engine # Import the database engine directly
+from .. import models
 import pandas as pd
 import io
 
+# This line creates the router object that main.py needs to import.
 router = APIRouter()
 
 @router.post("/data/upload")
-async def upload_file(file: UploadFile = File(...), table: str = "raw_schedule", db=Depends(get_db)):
+async def upload_schedule(file: UploadFile = File(...)):
+    """
+    This endpoint handles the upload of the NHL schedule file.
+    It reads the file, cleans the data types, and saves it to the
+    'raw_schedule' table using pandas' to_sql for robust type handling.
+    """
     try:
+        # --- 1. Read the file into a pandas DataFrame ---
         contents = await file.read()
         if file.filename.endswith('.csv'):
-            df = pd.read_csv(io.BytesIO(contents))
+            df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
         elif file.filename.endswith('.xlsx'):
             df = pd.read_excel(io.BytesIO(contents), engine='openpyxl')
         else:
-            raise HTTPException(400, detail="Only CSV or XLSX allowed")
-
-        logger.info(f"Original columns: {df.columns.tolist()}")
-        df.columns = [col.strip() for col in df.columns]  # Clean column names
-
-        # Redirect 'games' to 'raw_schedule' temporarily
-        if table == "games":
-            logger.warning("Redirecting 'games' to 'raw_schedule' due to frontend mismatch")
-            table = "raw_schedule"
-
-        if table == "raw_skaters":
-            columns = ['playerId', 'season', 'name', 'team', 'position', 'situation', 'games_played', 'icetime', 'shifts', 'gameScore', 'onIce_xGoalsPercentage', 'offIce_xGoalsPercentage', 'onIce_corsiPercentage', 'offIce_corsiPercentage', 'onIce_fenwickPercentage', 'offIce_fenwickPercentage', 'iceTimeRank', 'I_F_xOnGoal', 'I_F_xGoals', 'I_F_xRebounds', 'I_F_xFreeze', 'I_F_xPlayStopped', 'I_F_xPlayContinuedInZone', 'I_F_xPlayContinuedOutsideZone', 'I_F_flurryAdjustedxGoals', 'I_F_scoreVenueAdjustedxGoals', 'I_F_flurryScoreVenueAdjustedxGoals', 'I_F_primaryAssists', 'I_F_secondaryAssists', 'I_F_shotsOnGoal', 'I_F_missedShots', 'I_F_blockedShotAttempts', 'I_F_shotAttempts', 'I_F_points', 'I_F_goals', 'I_F_rebounds', 'I_F_reboundGoals', 'I_F_freeze', 'I_F_playStopped', 'I_F_playContinuedInZone', 'I_F_playContinuedOutsideZone', 'I_F_savedShotsOnGoal', 'I_F_savedUnblockedShotAttempts', 'penalties', 'I_F_penalityMinutes', 'I_F_faceOffsWon', 'I_F_hits', 'I_F_takeaways', 'I_F_giveaways', 'I_F_lowDangerShots', 'I_F_mediumDangerShots', 'I_F_highDangerShots', 'I_F_lowDangerxGoals', 'I_F_mediumDangerxGoals', 'I_F_highDangerxGoals', 'I_F_lowDangerGoals', 'I_F_mediumDangerGoals', 'I_F_highDangerGoals', 'I_F_scoreAdjustedShotsAttempts', 'I_F_unblockedShotAttempts', 'I_F_scoreAdjustedUnblockedShotAttempts', 'I_F_dZoneGiveaways', 'I_F_xGoalsFromxReboundsOfShots', 'I_F_xGoalsFromActualReboundsOfShots', 'I_F_reboundxGoals', 'I_F_xGoals_with_earned_rebounds', 'I_F_xGoals_with_earned_rebounds_scoreAdjusted', 'I_F_xGoals_with_earned_rebounds_scoreFlurryAdjusted', 'I_F_shifts', 'I_F_oZoneShiftStarts', 'I_F_dZoneShiftStarts', 'I_F_neutralZoneShiftStarts', 'I_F_flyShiftStarts', 'I_F_oZoneShiftEnds', 'I_F_dZoneShiftEnds', 'I_F_neutralZoneShiftEnds', 'I_F_flyShiftEnds', 'faceoffsWon', 'faceoffsLost', 'timeOnBench', 'penalityMinutes', 'penalityMinutesDrawn', 'penaltiesDrawn', 'shotsBlockedByPlayer', 'OnIce_F_xOnGoal', 'OnIce_F_xGoals', 'OnIce_F_flurryAdjustedxGoals', 'OnIce_F_scoreVenueAdjustedxGoals', 'OnIce_F_flurryScoreVenueAdjustedxGoals', 'OnIce_F_shotsOnGoal', 'OnIce_F_missedShots', 'OnIce_F_blockedShotAttempts', 'OnIce_F_shotAttempts', 'OnIce_F_goals', 'OnIce_F_rebounds', 'OnIce_F_reboundGoals', 'OnIce_F_lowDangerShots', 'OnIce_F_mediumDangerShots', 'OnIce_F_highDangerShots', 'OnIce_F_lowDangerxGoals', 'OnIce_F_mediumDangerxGoals', 'OnIce_F_highDangerxGoals', 'OnIce_F_lowDangerGoals', 'OnIce_F_mediumDangerGoals', 'OnIce_F_highDangerGoals', 'OnIce_F_scoreAdjustedShotsAttempts', 'OnIce_F_unblockedShotAttempts', 'OnIce_F_scoreAdjustedUnblockedShotAttempts', 'OnIce_F_xGoalsFromxReboundsOfShots', 'OnIce_F_xGoalsFromActualReboundsOfShots', 'OnIce_F_reboundxGoals', 'OnIce_F_xGoals_with_earned_rebounds', 'OnIce_F_xGoals_with_earned_rebounds_scoreAdjusted', 'OnIce_F_xGoals_with_earned_rebounds_scoreFlurryAdjusted', 'OnIce_A_xOnGoal', 'OnIce_A_xGoals', 'OnIce_A_flurryAdjustedxGoals', 'OnIce_A_scoreVenueAdjustedxGoals', 'OnIce_A_flurryScoreVenueAdjustedxGoals', 'OnIce_A_shotsOnGoal', 'OnIce_A_missedShots', 'OnIce_A_blockedShotAttempts', 'OnIce_A_shotAttempts', 'OnIce_A_goals', 'OnIce_A_rebounds', 'OnIce_A_reboundGoals', 'OnIce_A_lowDangerShots', 'OnIce_A_mediumDangerShots', 'OnIce_A_highDangerShots', 'OnIce_A_lowDangerxGoals', 'OnIce_A_mediumDangerxGoals', 'OnIce_A_highDangerxGoals', 'OnIce_A_lowDangerGoals', 'OnIce_A_mediumDangerGoals', 'OnIce_A_highDangerGoals', 'OnIce_A_scoreAdjustedShotsAttempts', 'OnIce_A_unblockedShotAttempts', 'OnIce_A_scoreAdjustedUnblockedShotAttempts', 'OnIce_A_xGoalsFromxReboundsOfShots', 'OnIce_A_xGoalsFromActualReboundsOfShots', 'OnIce_A_reboundxGoals', 'OnIce_A_xGoals_with_earned_rebounds', 'OnIce_A_xGoals_with_earned_rebounds_scoreAdjusted', 'OnIce_A_xGoals_with_earned_rebounds_scoreFlurryAdjusted', 'OffIce_F_xGoals', 'OffIce_A_xGoals', 'OffIce_F_shotAttempts', 'OffIce_A_shotAttempts', 'xGoalsForAfterShifts', 'xGoalsAgainstAfterShifts', 'corsiForAfterShifts', 'corsiAgainstAfterShifts', 'fenwickForAfterShifts', 'fenwickAgainstAfterShifts']
-            df = df[columns]  # Select only the listed columns
-        elif table == "raw_goalies":
-            columns = ['playerId', 'season', 'name', 'team', 'position', 'situation', 'games_played', 'icetime', 'xGoals', 'goals', 'unblocked_shot_attempts', 'xRebounds', 'rebounds', 'xFreeze', 'freeze', 'xOnGoal', 'ongoal', 'xPlayStopped', 'playStopped', 'xPlayContinuedInZone', 'playContinuedInZone', 'xPlayContinuedOutsideZone', 'playContinuedOutsideZone', 'flurryAdjustedxGoals', 'lowDangerShots', 'mediumDangerShots', 'highDangerShots', 'lowDangerxGoals', 'mediumDangerxGoals', 'highDangerxGoals', 'lowDangerGoals', 'mediumDangerGoals', 'highDangerGoals', 'blocked_shot_attempts', 'penalityMinutes', 'penalties']
-            df = df[columns]  # Select only the listed columns
-        elif table == "raw_teams":
-            columns = ['team', 'season', 'name', 'position', 'situation', 'games_played', 'xGoalsPercentage', 'corsiPercentage', 'fenwickPercentage', 'iceTime', 'xOnGoalFor', 'xGoalsFor', 'xReboundsFor', 'xFreezeFor', 'xPlayStoppedFor', 'xPlayContinuedInZoneFor', 'xPlayContinuedOutsideZoneFor', 'flurryAdjustedxGoalsFor', 'scoreVenueAdjustedxGoalsFor', 'flurryScoreVenueAdjustedxGoalsFor', 'shotsOnGoalFor', 'missedShotsFor', 'blockedShotAttemptsFor', 'shotAttemptsFor', 'goalsFor', 'reboundsFor', 'reboundGoalsFor', 'freezeFor', 'playStoppedFor', 'playContinuedInZoneFor', 'playContinuedOutsideZoneFor', 'savedShotsOnGoalFor', 'savedUnblockedShotAttemptsFor', 'penaltiesFor', 'penalityMinutesFor', 'faceOffsWonFor', 'hitsFor', 'takeawaysFor', 'giveawaysFor', 'lowDangerShotsFor', 'mediumDangerShotsFor', 'highDangerShotsFor', 'lowDangerxGoalsFor', 'mediumDangerxGoalsFor', 'highDangerxGoalsFor', 'lowDangerGoalsFor', 'mediumDangerGoalsFor', 'highDangerGoalsFor', 'scoreAdjustedShotsAttemptsFor', 'unblockedShotAttemptsFor', 'scoreAdjustedUnblockedShotAttemptsFor', 'dZoneGiveawaysFor', 'xGoalsFromxReboundsOfShotsFor', 'xGoalsFromActualReboundsOfShotsFor', 'reboundxGoalsFor', 'totalShotCreditFor', 'scoreAdjustedTotalShotCreditFor', 'scoreFlurryAdjustedTotalShotCreditFor', 'xOnGoalAgainst', 'xGoalsAgainst', 'xReboundsAgainst', 'xFreezeAgainst', 'xPlayStoppedAgainst', 'xPlayContinuedInZoneAgainst', 'xPlayContinuedOutsideZoneAgainst', 'flurryAdjustedxGoalsAgainst', 'scoreVenueAdjustedxGoalsAgainst', 'flurryScoreVenueAdjustedxGoalsAgainst', 'shotsOnGoalAgainst', 'missedShotsAgainst', 'blockedShotAttemptsAgainst', 'shotAttemptsAgainst', 'goalsAgainst', 'reboundsAgainst', 'reboundGoalsAgainst', 'freezeAgainst', 'playStoppedAgainst', 'playContinuedInZoneAgainst', 'playContinuedOutsideZoneAgainst', 'savedShotsOnGoalAgainst', 'savedUnblockedShotAttemptsAgainst', 'penaltiesAgainst', 'penalityMinutesAgainst', 'faceOffsWonAgainst', 'hitsAgainst', 'takeawaysAgainst', 'giveawaysAgainst', 'lowDangerShotsAgainst', 'mediumDangerShotsAgainst', 'highDangerShotsAgainst', 'lowDangerxGoalsAgainst', 'mediumDangerxGoalsAgainst', 'highDangerxGoalsAgainst', 'lowDangerGoalsAgainst', 'mediumDangerGoalsAgainst', 'highDangerGoalsAgainst', 'scoreAdjustedShotsAttemptsAgainst', 'unblockedShotAttemptsAgainst', 'scoreAdjustedUnblockedShotAttemptsAgainst', 'dZoneGiveawaysAgainst', 'xGoalsFromxReboundsOfShotsAgainst', 'xGoalsFromActualReboundsOfShotsAgainst', 'reboundxGoalsAgainst', 'totalShotCreditAgainst', 'scoreAdjustedTotalShotCreditAgainst', 'scoreFlurryAdjustedTotalShotCreditAgainst']
-            if 'team' in df.columns and df.columns.tolist().count('team') > 1:
-                df = df.loc[:, ~df.columns.duplicated()]
-            df = df[columns]  # Select only the listed columns
-        elif table == "raw_lines_pairings":
-            columns = ['lineId', 'season', 'name', 'team', 'position', 'situation', 'games_played', 'icetime', 'iceTimeRank', 'xGoalsPercentage', 'corsiPercentage', 'fenwickPercentage', 'xOnGoalFor', 'xGoalsFor', 'xReboundsFor', 'xFreezeFor', 'xPlayStoppedFor', 'xPlayContinuedInZoneFor', 'xPlayContinuedOutsideZoneFor', 'flurryAdjustedxGoalsFor', 'scoreVenueAdjustedxGoalsFor', 'flurryScoreVenueAdjustedxGoalsFor', 'shotsOnGoalFor', 'missedShotsFor', 'blockedShotAttemptsFor', 'shotAttemptsFor', 'goalsFor', 'reboundsFor', 'reboundGoalsFor', 'freezeFor', 'playStoppedFor', 'playContinuedInZoneFor', 'playContinuedOutsideZoneFor', 'savedShotsOnGoalFor', 'savedUnblockedShotAttemptsFor', 'penaltiesFor', 'penalityMinutesFor', 'faceOffsWonFor', 'hitsFor', 'takeawaysFor', 'giveawaysFor', 'lowDangerShotsFor', 'mediumDangerShotsFor', 'highDangerShotsFor', 'lowDangerxGoalsFor', 'mediumDangerxGoalsFor', 'highDangerxGoalsFor', 'lowDangerGoalsFor', 'mediumDangerGoalsFor', 'highDangerGoalsFor', 'scoreAdjustedShotsAttemptsFor', 'unblockedShotAttemptsFor', 'scoreAdjustedUnblockedShotAttemptsFor', 'dZoneGiveawaysFor', 'xGoalsFromxReboundsOfShotsFor', 'xGoalsFromActualReboundsOfShotsFor', 'reboundxGoalsFor', 'totalShotCreditFor', 'scoreAdjustedTotalShotCreditFor', 'scoreFlurryAdjustedTotalShotCreditFor', 'xOnGoalAgainst', 'xGoalsAgainst', 'xReboundsAgainst', 'xFreezeAgainst', 'xPlayStoppedAgainst', 'xPlayContinuedInZoneAgainst', 'xPlayContinuedOutsideZoneAgainst', 'flurryAdjustedxGoalsAgainst', 'scoreVenueAdjustedxGoalsAgainst', 'flurryScoreVenueAdjustedxGoalsAgainst', 'shotsOnGoalAgainst', 'missedShotsAgainst', 'blockedShotAttemptsAgainst', 'shotAttemptsAgainst', 'goalsAgainst', 'reboundsAgainst', 'reboundGoalsAgainst', 'freezeAgainst', 'playStoppedAgainst', 'playContinuedInZoneAgainst', 'playContinuedOutsideZoneAgainst', 'savedShotsOnGoalAgainst', 'savedUnblockedShotAttemptsAgainst', 'penaltiesAgainst', 'penalityMinutesAgainst', 'faceOffsWonAgainst', 'hitsAgainst', 'takeawaysAgainst', 'giveawaysAgainst', 'lowDangerShotsAgainst', 'mediumDangerShotsAgainst', 'highDangerShotsAgainst', 'lowDangerxGoalsAgainst', 'mediumDangerxGoalsAgainst', 'highDangerxGoalsAgainst', 'lowDangerGoalsAgainst', 'mediumDangerGoalsAgainst', 'highDangerGoalsAgainst', 'scoreAdjustedShotsAttemptsAgainst', 'unblockedShotAttemptsAgainst', 'scoreAdjustedUnblockedShotAttemptsAgainst', 'dZoneGiveawaysAgainst', 'xGoalsFromxReboundsOfShotsAgainst', 'xGoalsFromActualReboundsOfShotsAgainst', 'reboundxGoalsAgainst', 'totalShotCreditAgainst', 'scoreAdjustedTotalShotCreditAgainst', 'scoreFlurryAdjustedTotalShotCreditAgainst']
-            df = df[columns]  # Select only the listed columns
-        elif table == "raw_player_game":
-            columns = ['playerId', 'season', 'name', 'gameId', 'playerTeam', 'opposingTeam', 'home_or_away', 'gameDate', 'position', 'situation', 'icetime', 'shifts', 'gameScore', 'onIce_xGoalsPercentage', 'offIce_xGoalsPercentage', 'onIce_corsiPercentage', 'offIce_corsiPercentage', 'onIce_fenwickPercentage', 'offIce_fenwickPercentage', 'iceTimeRank', 'I_F_xOnGoal', 'I_F_xGoals', 'I_F_xRebounds', 'I_F_xFreeze', 'I_F_xPlayStopped', 'I_F_xPlayContinuedInZone', 'I_F_xPlayContinuedOutsideZone', 'I_F_flurryAdjustedxGoals', 'I_F_scoreVenueAdjustedxGoals', 'I_F_flurryScoreVenueAdjustedxGoals', 'I_F_primaryAssists', 'I_F_secondaryAssists', 'I_F_shotsOnGoal', 'I_F_missedShots', 'I_F_blockedShotAttempts', 'I_F_shotAttempts', 'I_F_points', 'I_F_goals', 'I_F_rebounds', 'I_F_reboundGoals', 'I_F_freeze', 'I_F_playStopped', 'I_F_playContinuedInZone', 'I_F_playContinuedOutsideZone', 'I_F_savedShotsOnGoal', 'I_F_savedUnblockedShotAttempts', 'penalties', 'I_F_penalityMinutes', 'I_F_faceOffsWon', 'I_F_hits', 'I_F_takeaways', 'I_F_giveaways', 'I_F_lowDangerShots', 'I_F_mediumDangerShots', 'I_F_highDangerShots', 'I_F_lowDangerxGoals', 'I_F_mediumDangerxGoals', 'I_F_highDangerxGoals', 'I_F_lowDangerGoals', 'I_F_mediumDangerGoals', 'I_F_highDangerGoals', 'I_F_scoreAdjustedShotsAttempts', 'I_F_unblockedShotAttempts', 'I_F_scoreAdjustedUnblockedShotAttempts', 'I_F_dZoneGiveaways', 'I_F_xGoalsFromxReboundsOfShots', 'I_F_xGoalsFromActualReboundsOfShots', 'I_F_reboundxGoals', 'I_F_xGoals_with_earned_rebounds', 'I_F_xGoals_with_earned_rebounds_scoreAdjusted', 'I_F_xGoals_with_earned_rebounds_scoreFlurryAdjusted', 'I_F_shifts', 'I_F_oZoneShiftStarts', 'I_F_dZoneShiftStarts', 'I_F_neutralZoneShiftStarts', 'I_F_flyShiftStarts', 'I_F_oZoneShiftEnds', 'I_F_dZoneShiftEnds', 'I_F_neutralZoneShiftEnds', 'I_F_flyShiftEnds', 'faceoffsWon', 'faceoffsLost', 'timeOnBench', 'penalityMinutes', 'penalityMinutesDrawn', 'penaltiesDrawn', 'shotsBlockedByPlayer', 'OnIce_F_xOnGoal', 'OnIce_F_xGoals', 'OnIce_F_flurryAdjustedxGoals', 'OnIce_F_scoreVenueAdjustedxGoals', 'OnIce_F_flurryScoreVenueAdjustedxGoals', 'OnIce_F_shotsOnGoal', 'OnIce_F_missedShots', 'OnIce_F_blockedShotAttempts', 'OnIce_F_shotAttempts', 'OnIce_F_goals', 'OnIce_F_rebounds', 'OnIce_F_reboundGoals', 'OnIce_F_lowDangerShots', 'OnIce_F_mediumDangerShots', 'OnIce_F_highDangerShots', 'OnIce_F_lowDangerxGoals', 'OnIce_F_mediumDangerxGoals', 'OnIce_F_highDangerxGoals', 'OnIce_F_lowDangerGoals', 'OnIce_F_mediumDangerGoals', 'OnIce_F_highDangerGoals', 'OnIce_F_scoreAdjustedShotsAttempts', 'OnIce_F_unblockedShotAttempts', 'OnIce_F_scoreAdjustedUnblockedShotAttempts', 'OnIce_F_xGoalsFromxReboundsOfShots', 'OnIce_F_xGoalsFromActualReboundsOfShots', 'OnIce_F_reboundxGoals', 'OnIce_F_xGoals_with_earned_rebounds', 'OnIce_F_xGoals_with_earned_rebounds_scoreAdjusted', 'OnIce_F_xGoals_with_earned_rebounds_scoreFlurryAdjusted', 'OnIce_A_xOnGoal', 'OnIce_A_xGoals', 'OnIce_A_flurryAdjustedxGoals', 'OnIce_A_scoreVenueAdjustedxGoals', 'OnIce_A_flurryScoreVenueAdjustedxGoals', 'OnIce_A_shotsOnGoal', 'OnIce_A_missedShots', 'OnIce_A_blockedShotAttempts', 'OnIce_A_shotAttempts', 'OnIce_A_goals', 'OnIce_A_rebounds', 'OnIce_A_reboundGoals', 'OnIce_A_lowDangerShots', 'OnIce_A_mediumDangerShots', 'OnIce_A_highDangerShots', 'OnIce_A_lowDangerxGoals', 'OnIce_A_mediumDangerxGoals', 'OnIce_A_highDangerxGoals', 'OnIce_A_lowDangerGoals', 'OnIce_A_mediumDangerGoals', 'OnIce_A_highDangerGoals', 'OnIce_A_scoreAdjustedShotsAttempts', 'OnIce_A_unblockedShotAttempts', 'OnIce_A_scoreAdjustedUnblockedShotAttempts', 'OnIce_A_xGoalsFromxReboundsOfShots', 'OnIce_A_xGoalsFromActualReboundsOfShots', 'OnIce_A_reboundxGoals', 'OnIce_A_xGoals_with_earned_rebounds', 'OnIce_A_xGoals_with_earned_rebounds_scoreAdjusted', 'OnIce_A_xGoals_with_earned_rebounds_scoreFlurryAdjusted', 'OffIce_F_xGoals', 'OffIce_A_xGoals', 'OffIce_F_shotAttempts', 'OffIce_A_shotAttempts', 'xGoalsForAfterShifts', 'xGoalsAgainstAfterShifts', 'corsiForAfterShifts', 'corsiAgainstAfterShifts', 'fenwickForAfterShifts', 'fenwickAgainstAfterShifts']
-            df = df[columns]  # Select only the listed columns
-        elif table == "raw_game_level":
-            columns = ['team', 'season', 'name', 'gameId', 'playerTeam', 'opposingTeam', 'home_or_away', 'gameDate', 'position', 'situation', 'xGoalsPercentage', 'corsiPercentage', 'fenwickPercentage', 'iceTime', 'xOnGoalFor', 'xGoalsFor', 'xReboundsFor', 'xFreezeFor', 'xPlayStoppedFor', 'xPlayContinuedInZoneFor', 'xPlayContinuedOutsideZoneFor', 'flurryAdjustedxGoalsFor', 'scoreVenueAdjustedxGoalsFor', 'flurryScoreVenueAdjustedxGoalsFor', 'shotsOnGoalFor', 'missedShotsFor', 'blockedShotAttemptsFor', 'shotAttemptsFor', 'goalsFor', 'reboundsFor', 'reboundGoalsFor', 'freezeFor', 'playStoppedFor', 'playContinuedInZoneFor', 'playContinuedOutsideZoneFor', 'savedShotsOnGoalFor', 'savedUnblockedShotAttemptsFor', 'penaltiesFor', 'penalityMinutesFor', 'faceOffsWonFor', 'hitsFor', 'takeawaysFor', 'giveawaysFor', 'lowDangerShotsFor', 'mediumDangerShotsFor', 'highDangerShotsFor', 'lowDangerxGoalsFor', 'mediumDangerxGoalsFor', 'highDangerxGoalsFor', 'lowDangerGoalsFor', 'mediumDangerGoalsFor', 'highDangerGoalsFor', 'scoreAdjustedShotsAttemptsFor', 'unblockedShotAttemptsFor', 'scoreAdjustedUnblockedShotAttemptsFor', 'dZoneGiveawaysFor', 'xGoalsFromxReboundsOfShotsFor', 'xGoalsFromActualReboundsOfShotsFor', 'reboundxGoalsFor', 'totalShotCreditFor', 'scoreAdjustedTotalShotCreditFor', 'scoreFlurryAdjustedTotalShotCreditFor', 'xOnGoalAgainst', 'xGoalsAgainst', 'xReboundsAgainst', 'xFreezeAgainst', 'xPlayStoppedAgainst', 'xPlayContinuedInZoneAgainst', 'xPlayContinuedOutsideZoneAgainst', 'flurryAdjustedxGoalsAgainst', 'scoreVenueAdjustedxGoalsAgainst', 'flurryScoreVenueAdjustedxGoalsAgainst', 'shotsOnGoalAgainst', 'missedShotsAgainst', 'blockedShotAttemptsAgainst', 'shotAttemptsAgainst', 'goalsAgainst', 'reboundsAgainst', 'reboundGoalsAgainst', 'freezeAgainst', 'playStoppedAgainst', 'playContinuedInZoneAgainst', 'playContinuedOutsideZoneAgainst', 'savedShotsOnGoalAgainst', 'savedUnblockedShotAttemptsAgainst', 'penaltiesAgainst', 'penalityMinutesAgainst', 'faceOffsWonAgainst', 'hitsAgainst', 'takeawaysAgainst', 'giveawaysAgainst', 'lowDangerShotsAgainst', 'mediumDangerShotsAgainst', 'highDangerShotsAgainst', 'lowDangerxGoalsAgainst', 'mediumDangerxGoalsAgainst', 'highDangerxGoalsAgainst', 'lowDangerGoalsAgainst', 'mediumDangerGoalsAgainst', 'highDangerGoalsAgainst', 'scoreAdjustedShotsAttemptsAgainst', 'unblockedShotAttemptsAgainst', 'scoreAdjustedUnblockedShotAttemptsAgainst', 'dZoneGiveawaysAgainst', 'xGoalsFromxReboundsOfShotsAgainst', 'xGoalsFromActualReboundsOfShotsAgainst', 'reboundxGoalsAgainst', 'totalShotCreditAgainst', 'scoreAdjustedTotalShotCreditAgainst', 'scoreFlurryAdjustedTotalShotCreditAgainst', 'playoffGame']
-            df = df[columns]  # Select only the listed columns
-        elif table == "raw_shot_data":
-            columns = ['shotID', 'homeTeamCode', 'awayTeamCode', 'season', 'isPlayoffGame', 'game_id', 'homeTeamWon', 'id', 'time', 'timeUntilNextEvent', 'timeSinceLastEvent', 'period', 'team', 'location', 'event', 'goal', 'shotPlayContinuedOutsideZone', 'shotPlayContinuedInZone', 'shotGoalieFroze', 'shotPlayStopped', 'shotGeneratedRebound', 'homeTeamGoals', 'awayTeamGoals', 'xCord', 'yCord', 'xCordAdjusted', 'yCordAdjusted', 'shotAngle', 'shotAngleAdjusted', 'shotAnglePlusRebound', 'shotAngleReboundRoyalRoad', 'shotDistance', 'shotType', 'shotOnEmptyNet', 'shotRebound', 'shotAnglePlusReboundSpeed', 'shotRush', 'speedFromLastEvent', 'lastEventxCord', 'lastEventyCord', 'distanceFromLastEvent', 'lastEventShotAngle', 'lastEventShotDistance', 'lastEventCategory', 'lastEventTeam', 'homeEmptyNet', 'awayEmptyNet', 'homeSkatersOnIce', 'awaySkatersOnIce', 'awayPenalty1TimeLeft', 'awayPenalty1Length', 'homePenalty1TimeLeft', 'homePenalty1Length', 'playerPositionThatDidEvent', 'playerNumThatDidEvent', 'playerNumThatDidLastEvent', 'lastEventxCord_adjusted', 'lastEventyCord_adjusted', 'timeSinceFaceoff', 'goalieIdForShot', 'goalieNameForShot', 'shooterPlayerId', 'shooterName', 'shooterLeftRight', 'shooterTimeOnIce', 'shooterTimeOnIceSinceFaceoff', 'shootingTeamForwardsOnIce', 'shootingTeamDefencemenOnIce', 'shootingTeamAverageTimeOnIce', 'shootingTeamAverageTimeOnIceOfForwards', 'shootingTeamAverageTimeOnIceOfDefencemen', 'shootingTeamMaxTimeOnIce', 'shootingTeamMaxTimeOnIceOfForwards', 'shootingTeamMaxTimeOnIceOfDefencemen', 'shootingTeamMinTimeOnIce', 'shootingTeamMinTimeOnIceOfForwards', 'shootingTeamMinTimeOnIceOfDefencemen', 'shootingTeamAverageTimeOnIceSinceFaceoff', 'shootingTeamAverageTimeOnIceOfForwardsSinceFaceoff', 'shootingTeamAverageTimeOnIceOfDefencemenSinceFaceoff', 'shootingTeamMaxTimeOnIceSinceFaceoff', 'shootingTeamMaxTimeOnIceOfForwardsSinceFaceoff', 'shootingTeamMaxTimeOnIceOfDefencemenSinceFaceoff', 'shootingTeamMinTimeOnIceSinceFaceoff', 'shootingTeamMinTimeOnIceOfForwardsSinceFaceoff', 'shootingTeamMinTimeOnIceOfDefencemenSinceFaceoff', 'defendingTeamForwardsOnIce', 'defendingTeamDefencemenOnIce', 'defendingTeamAverageTimeOnIce', 'defendingTeamAverageTimeOnIceOfForwards', 'defendingTeamAverageTimeOnIceOfDefencemen', 'defendingTeamMaxTimeOnIce', 'defendingTeamMaxTimeOnIceOfForwards', 'defendingTeamMaxTimeOnIceOfDefencemen', 'defendingTeamMinTimeOnIce', 'defendingTeamMinTimeOnIceOfForwards', 'defendingTeamMinTimeOnIceOfDefencemen', 'defendingTeamAverageTimeOnIceSinceFaceoff', 'defendingTeamAverageTimeOnIceOfForwardsSinceFaceoff', 'defendingTeamAverageTimeOnIceOfDefencemenSinceFaceoff', 'defendingTeamMaxTimeOnIceSinceFaceoff', 'defendingTeamMaxTimeOnIceOfForwardsSinceFaceoff', 'defendingTeamMaxTimeOnIceOfDefencemenSinceFaceoff', 'defendingTeamMinTimeOnIceSinceFaceoff', 'defendingTeamMinTimeOnIceOfForwardsSinceFaceoff', 'defendingTeamMinTimeOnIceOfDefencemenSinceFaceoff', 'offWing', 'arenaAdjustedShotDistance', 'arenaAdjustedXCord', 'arenaAdjustedYCord', 'arenaAdjustedYCordAbs', 'timeDifferenceSinceChange', 'averageRestDifference', 'xGoal', 'xFroze', 'xRebound', 'xPlayContinuedInZone', 'xPlayContinuedOutsideZone', 'xPlayStopped', 'xShotWasOnGoal', 'isHomeTeam', 'shotWasOnGoal', 'teamCode', 'arenaAdjustedXCordABS']
-            df = df[columns]  # Select only the listed columns
-        elif table == "raw_player_info":
-            columns = ['playerId', 'name', 'position', 'team', 'birthDate', 'weight', 'height', 'nationality', 'shootsCatches', 'primaryNumber', 'primaryPosition']
-            df = df[columns]  # Select only the listed columns
-        else:
-            raise HTTPException(400, detail=f"Unsupported table: {table}")
-
-        # Convert date column if present
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.date
-
-        df.to_sql(table, db.bind, if_exists='append', index=False)
-        logger.info(f"Uploaded {len(df)} records to {table}")
-        return {"status": "success", "records": len(df)}
+            raise HTTPException(400, "Unsupported file type. Please use CSV or XLSX.")
     except Exception as e:
-        db.rollback()
-        logger.error(f"Upload failed: {str(e)}")
-        raise HTTPException(400, detail=f"Upload failed: {str(e)}")
+        raise HTTPException(400, f"Error reading file: {e}")
+
+    # --- 2. Define the mapping from file columns to database columns ---
+    column_mapping = {
+        'Date': 'date',
+        'Time': 'time',
+        'Visitor': 'visitor',
+        'G': 'visitor_goals',
+        'Home': 'home',
+        'G.1': 'home_goals',
+        'Att.': 'attendance',
+        'Notes': 'notes'
+    }
+    df.rename(columns=column_mapping, inplace=True)
+    
+    # --- 3. Keep only the columns defined in our database model ---
+    model_columns = [c.name for c in models.RawSchedule.__table__.columns if c.name != 'id']
+    df_to_upload = df[df.columns.intersection(model_columns)]
+
+    # --- 4. Correct data types to avoid database errors ---
+    # This is the key fix for the "integer out of range" error.
+    # We convert date/time and explicitly use pandas' nullable integer
+    # type for columns that might have missing values.
+    
+    if 'date' in df_to_upload.columns:
+        df_to_upload['date'] = pd.to_datetime(df_to_upload['date'], errors='coerce').dt.date
+    if 'time' in df_to_upload.columns:
+        # The file has time as a string, so we convert it to a datetime object first, then extract the time
+        df_to_upload['time'] = pd.to_datetime(df_to_upload['time'].astype(str), errors='coerce').dt.time
+
+    # Define integer columns
+    integer_columns = ['visitor_goals', 'home_goals', 'attendance']
+    for col in integer_columns:
+        if col in df_to_upload.columns:
+            # pd.to_numeric converts values to numbers, making non-numbers NaN
+            # astype('Int64') converts the column to a nullable integer type, which handles NaN
+            df_to_upload[col] = pd.to_numeric(df_to_upload[col], errors='coerce').astype('Int64')
+
+    # --- 5. Save the cleaned DataFrame to the database ---
+    try:
+        # Using df.to_sql is robust and handles pandas dtypes (like Int64) correctly.
+        # It will convert the special <NA> from Int64 columns to a SQL NULL value.
+        df_to_upload.to_sql(
+            name=models.RawSchedule.__tablename__,
+            con=engine,
+            if_exists='append',
+            index=False
+        )
+        return {"status": "success", "records_uploaded": len(df_to_upload)}
+
+    except Exception as e:
+        raise HTTPException(500, f"Database error: {e}")
+
