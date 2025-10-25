@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+// Use next/font/local to load your local font files
+import localFont from "next/font/local";
+// Change the import path for globals.css to use the root alias
+import "@/globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+// Set up the local Geist font from your /src/app/fonts/ directory
+const geist = localFont({
+  src: './fonts/GeistVF.woff',
+  variable: '--font-geist'
+});
 
 export const metadata: Metadata = {
-  title: "BirdPicks NHL Predictor",
-  description: "Web app for NHL game and player predictions",
+  title: "BirdPicks App",
+  description: "NHL Data Analysis & Predictions",
 };
 
+// This is the root layout. It should be simple and should NOT
+// contain your sidebar. It just sets up the basic HTML structure.
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -16,12 +24,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <header className="bg-blue-600 text-white p-4">
-          <h1 className="text-2xl font-bold">BirdPicks NHL Predictor</h1>
-        </header>
-        <main className="p-4">{children}</main>
-      </body>
+      {/* Apply the local font className here */}
+      <body className={geist.className}>{children}</body>
     </html>
   );
 }
+

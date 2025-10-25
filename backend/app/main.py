@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
-from .routes import upload
+from .routes import upload, schedule  # Ensure 'schedule' is imported here
 import logging
 
 # Set up logging
@@ -9,22 +9,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --- Create Tables ---
-# This line checks for the existence of your tables and creates them
-# if they don't already exist. It will NOT delete or alter existing tables.
-# This is the safe way to manage your schema.
 logger.info("Creating tables if they do not exist...")
 Base.metadata.create_all(bind=engine)
 logger.info("Table check complete.")
 
-
-# --- Development Only Code: REMOVED ---
-# The code to drop tables on every restart has been removed to prevent data loss.
-# logger.info("Dropping all existing tables from the database (Development Mode)...")
-# Base.metadata.drop_all(bind=engine)
-
-
 # --- Initialize FastAPI App ---
-# This is the main application object that Uvicorn looks for.
 app = FastAPI(
     title="BirdPicks API",
     description="API for NHL data analysis and predictions.",
@@ -32,7 +21,6 @@ app = FastAPI(
 )
 
 # --- CORS Middleware ---
-# This allows your frontend (at http://localhost:3000) to communicate with this backend.
 origins = [
     "http://localhost:3000",
 ]
@@ -45,9 +33,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # --- Include Routers ---
+# Both the upload and the new schedule router must be included.
 app.include_router(upload.router)
+app.include_router(schedule.router)
 
 # --- Root Endpoint ---
 @app.get("/")
